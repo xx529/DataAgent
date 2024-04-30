@@ -26,7 +26,6 @@ class PythonRunner:
                 self.shell.run_cell(c)
 
         text = self.ANSI_ESCAPE.sub('', capture.stdout)
-        # text = capture.outputs
         if self.ERROR_DELIMITERS in text:
             out, err = text.split(self.ERROR_DELIMITERS)
         else:
@@ -34,12 +33,12 @@ class PythonRunner:
         return out, err
 
     def __enter__(self):
-        # logger.info('create ipython instance')
+        logger.info('create ipython instance')
         self.shell = TerminalInteractiveShell(ipython_dir=self.ipython_dir)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        # logger.info('close ipython instance')
+        logger.info('close ipython instance')
         self.shell.run_cell('exit()')
         return self
 
@@ -73,7 +72,7 @@ class PythonRunner:
 #         logger.info(f'remove conda env: {self.env_name}')
 #         args = ['conda', 'env', 'remove', '--name', self.env_name]
 #         subprocess.run(args, capture_output=True, text=True)
-        return self
+#         return self
 
 
 ipython_idr = Path('/Users/lzx/miniconda3/envs/runner/bin')
