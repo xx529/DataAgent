@@ -20,9 +20,11 @@ class InteractivePythonRunner:
         self.shell = None
 
     def run(self, code: str | List[str]) -> Tuple[str, str | None]:
+
         with capture_output() as capture:
             code = code if isinstance(code, list) else [code]
             for c in code:
+                logger.info(f'run code: {c}')
                 self.shell.run_cell(c)
 
         text = self.ANSI_ESCAPE.sub('', capture.stdout)

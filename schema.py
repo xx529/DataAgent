@@ -28,14 +28,15 @@ class QueryPrompt(BaseModel):
     tmpl: str = Field(main_tmpl, description='prompt模板')
     dfs: List[DataFrameInfo] = Field(description='表名称以及描述')
     query: str = Field(description='用户提问')
-    file_name: Path = Field(Path().absolute() / 'output.csv', description='输出文件路径名称')
+    file_name: Path = Field(Path().absolute() / 'outputs/output.csv', description='输出文件路径名称')
 
     def generate_prompt(self):
         return self.tmpl.format(dataframe_desc=self.get_df_info_str(),
                                 query=self.query,
                                 import_package=self.import_package(),
                                 read_pd_data=self.read_pd_data(),
-                                file_name=str(self.file_name))
+                                export_result=self.export_result(),
+                                exec_function=self.exec_function())
 
     def get_df_info_str(self):
         result = []
@@ -67,3 +68,10 @@ class QueryPrompt(BaseModel):
     @staticmethod
     def import_package():
         return 'import pandas as pd'
+
+    def export_result(self):
+        return f'df_result.to_csv("{self.file_name}")'
+
+    def exec_function(self):
+        args_string = [f'df_{n}=df_{n}' for n in range(len(self.dfs))]
+        return f'df_result = process_data({",".join(args_string)})'
