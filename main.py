@@ -1,12 +1,13 @@
 import os
-import re
 from pathlib import Path
 
 from dotenv import load_dotenv
+from loguru import logger
 from openai import OpenAI
 
 from pyrunner import InteractivePythonRunner
 from schema import DataFrameInfo, QueryPrompt
+from utils import extract_code
 
 require_doc = f"""
 1.打开《库存报表》，将《货品报表》的全部字段，根据”货号”匹配到《库存报表》上；
@@ -22,6 +23,7 @@ if __name__ == '__main__':
                 DataFrameInfo(name='库存报表', path=Path('./inputs/库存报表_1713509874777.xlsx'))]
 
     p = QueryPrompt(dfs=dfs_info, query=query)
+    logger.info(p.generate_prompt())
 
     # 模型请求
     load_dotenv()
@@ -33,16 +35,18 @@ if __name__ == '__main__':
                                                       'content': p.generate_prompt()}])
                   )
 
-    content = completion.choices[0].message.content
-    match_code = re.search(r'```python(.*?)```', content, re.DOTALL)
-    fill_code = match_code.group(1)
+    define_function_code = extract_code(completion)
 
     ipy_dir = Path('/Users/lzx/miniconda3/envs/py310/bin')
     with InteractivePythonRunner(ipy_dir) as ipy:
-        ipy.run(p.import_package())
-        ipy.run(p.read_pd_data())
-        ipy.run(fill_code)
-        out, err = ipy.run(p.exec_function())
-        out, err = ipy.run(p.export_result())
-        print(out)
-        print(err)
+        out, err = ipy.run([p.import_package(),
+                            p.read_pd_data(),
+                            define_function_code,
+                            p.exec_function(),
+                            p.export_result(),
+                            ])
+        if err is None:
+            logger.info('success to run code')
+        else:
+            logger.error('error to run code')
+            logger.error(err)
