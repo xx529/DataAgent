@@ -38,6 +38,7 @@ if __name__ == '__main__':
     define_function_code = extract_code(completion)
 
     ipy_dir = Path('/Users/lzx/miniconda3/envs/py310/bin')
+
     with InteractivePythonRunner(ipy_dir) as ipy:
         out, err = ipy.run([p.import_package(),
                             p.read_pd_data(),
@@ -47,6 +48,13 @@ if __name__ == '__main__':
                             ])
         if err is None:
             logger.info('success to run code')
+            with open('./outputs/code.py', 'w') as f:
+                total_code = '\n'.join([p.import_package(),
+                                        p.read_pd_data(),
+                                        define_function_code,
+                                        p.exec_function(),
+                                        p.export_result()])
+                f.write(total_code)
         else:
             logger.error('error to run code')
             logger.error(err)

@@ -11,7 +11,6 @@ from tmpl import MAIN_TMPL
 class DataFrameInfo(BaseModel):
     name: str = Field(description='表格名称')
     path: Path = Field(description='存储路径')
-    model_config = {'arbitrary_types_allowed': True}
 
     @property
     def df(self):
@@ -19,7 +18,7 @@ class DataFrameInfo(BaseModel):
         if suffix == '.xlsx':
             return pd.read_excel(self.path)
         if suffix == '.csv':
-            return  pd.read_csv(self.path)
+            return pd.read_csv(self.path)
         raise Exception('not found')
 
 
