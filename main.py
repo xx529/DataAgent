@@ -1,13 +1,10 @@
-import os
 from pathlib import Path
 
-from dotenv import load_dotenv
 from loguru import logger
-from openai import OpenAI
 
 from pyrunner import InteractivePythonRunner
 from schema import DataFrameInfo, QueryPrompt
-from utils import extract_code
+from utils import call_openai_llm, extract_code
 
 require_doc = f"""
 1.打开《库存报表》，将《货品报表》的全部字段，根据”货号”匹配到《库存报表》上；
@@ -26,14 +23,8 @@ if __name__ == '__main__':
     logger.info(p.generate_prompt())
 
     # 模型请求
-    load_dotenv()
-    completion = (OpenAI(base_url=os.getenv('BASE_URL'),
-                         api_key=os.getenv('API_KEY'))
-                  .chat.completions.create(model='gpt-3.5-turbo',
-                                           temperature=0.0,
-                                           messages=[{'role': 'user',
-                                                      'content': p.generate_prompt()}])
-                  )
+    messages = [{'role': 'user', 'content': p.generate_prompt()}]
+    completion = call_openai_llm(messages)
 
     define_function_code = extract_code(completion)
 
