@@ -10,7 +10,7 @@ INDENT_4 = ' ' * 4
 INDENT_8 = ' ' * 8
 
 
-class DataKeyField(BaseModel):
+class ColumnField(BaseModel):
     name: str = Field(description='字段名称')
     desc: str = Field('', description='字段描述')
 
@@ -22,15 +22,15 @@ class DataDesc(BaseModel):
     file_name: str = Field(description='文件名称')
     sheet_name: str = Field(description='sheet名称')
     data_desc: str = Field(description='数据内容')
-    key_fields: List[DataKeyField] = Field([], description='字段描述')
+    column_fields: List[ColumnField] = Field([], description='字段描述')
 
     def to_string(self, num):
-        if len(self.key_fields) == 0:
+        if len(self.column_fields) == 0:
             key_field_string = '（建议补充关键字段的名称和描述）'
         else:
 
             key_field_strings = []
-            for i in self.key_fields:
+            for i in self.column_fields:
                 key_field_strings.append(f"{INDENT_8}- {i.to_string()}")
             key_field_string = '\n' + '\n'.join(key_field_strings)
 
@@ -89,19 +89,19 @@ if __name__ == '__main__':
                 file_name='品智平台数据1201-1231_.xlsx',
                 sheet_name='品智平台数据1201-1231',
                 data_desc='描述品智平台在12月份的明细交易数据',
-                key_fields=[
-                    DataKeyField(name='时间-结账时间', desc='交易结账的时间'),
-                    DataKeyField(name='支付方式-美团外卖实收', desc='通过美团外卖平台支付的实收金额')
+                column_fields=[
+                    ColumnField(name='时间-结账时间', desc='交易结账的时间'),
+                    ColumnField(name='支付方式-美团外卖实收', desc='通过美团外卖平台支付的实收金额')
                 ]
             ),
             DataDesc(
                 file_name='美团外卖-订单明细1201-1231_.xlsx',
                 sheet_name='美团外卖-订单明细1201-1231',
                 data_desc='描述美团外卖平台12月份的明细交易数据',
-                key_fields=[
-                    DataKeyField(name='账单日期', desc='交易的时间'),
-                    DataKeyField(name='交易描述', desc='交易类型的种类'),
-                    DataKeyField(name='商家应收款', desc='这笔订单商家应该收到的款项金额'),
+                column_fields=[
+                    ColumnField(name='账单日期', desc='交易的时间'),
+                    ColumnField(name='交易描述', desc='交易类型的种类'),
+                    ColumnField(name='商家应收款', desc='这笔订单商家应该收到的款项金额'),
                 ]
             )
 
@@ -111,11 +111,11 @@ if __name__ == '__main__':
                 file_name='对账结果.xlsx',
                 sheet_name='美团品智对账结果',
                 data_desc='描述对账结果的数据',
-                key_fields=[
-                    DataKeyField(name='日期', desc='按天展示，每天对应一行数据'),
-                    DataKeyField(name='美团外卖实收', desc='品智平台数据中关于美团外卖的统计数据'),
-                    DataKeyField(name='订单明细汇总', desc='美团外卖订单及账单数据中的统计数据'),
-                    DataKeyField(name='差异', desc='计算每天品智平台的统计数据和美团外卖统计数据的差异'),
+                column_fields=[
+                    ColumnField(name='日期', desc='按天展示，每天对应一行数据'),
+                    ColumnField(name='美团外卖实收', desc='品智平台数据中关于美团外卖的统计数据'),
+                    ColumnField(name='订单明细汇总', desc='美团外卖订单及账单数据中的统计数据'),
+                    ColumnField(name='差异', desc='计算每天品智平台的统计数据和美团外卖统计数据的差异'),
                 ]
             )
         ],
