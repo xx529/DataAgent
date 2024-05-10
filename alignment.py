@@ -128,7 +128,8 @@ if __name__ == '__main__':
         ],
     )
     content = r.to_string()
-    prompt = GEN_OPERATION_TMPL.format(content=content)
+    print(content)
+    # prompt = GEN_OPERATION_TMPL.format(content=content)
 
 #     prompt = f"""
 #     “东方宝泰小馆-美团外卖”对账需求文档
@@ -180,9 +181,9 @@ if __name__ == '__main__':
 # 以美团外卖订单明细表中的“账单时间”为基础，在品智明细表中找到“结账时间”多出20秒内（按时间阶梯逐个阶梯查找）的同一行数据，识别该行数据的“美团外卖外卖实收”金额 是否等于 美团外卖订单明细表的“商家应收款”。若不等则视为未匹配数据。识别后在美团外卖订单明细表的“是否差异”列中标识为“是”
 #     """
 
-    r: RequirementDocDescription = call_openai_llm(messages=[{"role": "user", "content": prompt}],
-                                                   response_model=RequirementDocDescription)
-    print(r.to_string())
+    # r: RequirementDocDescription = call_openai_llm(messages=[{"role": "user", "content": prompt}],
+    #                                                response_model=RequirementDocDescription)
+    # print(r.to_string())
     # print(prompt)
     # print('-' * 30)
     # result = call_openai_llm(model='gpt-4-1106-preview',
