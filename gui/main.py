@@ -1,42 +1,45 @@
-# import streamlit as st
-#
-# st.set_page_config(layout='wide')
-#
-# with st.sidebar:
-#     st.title('Configure')
-#     api_key = st.text_input('API KEY')
-#     base_url = st.text_input('BASE URL')
-#
-# session_state = st.session_state
-# current_tab = session_state.get('current_tab', 0)
-#
-# # 定义一个状态变量来跟踪当前选中的Tab
-# tab_state = st.session_state.get('tab_state', 0)
-#
-# st.title('对账系统演示 Demo')
-# tab1, tab2, tab3, tab4 = st.tabs(["1.上传数据", "2.需求录入", "3.生成大纲", "4.代码生成"])
-#
-# with tab1:
-#     files = st.file_uploader('上传数据文件', accept_multiple_files=True)
-#     print(files)
-#     if st.button('确认上传'):
-#         current_tab = session_state.current_tab = (current_tab + 1)
-#
-#
-# with tab2:
-#     ...
-#
-# if current_tab != session_state.current_tab:
-#     session_state.current_tab = current_tab
-#     # 根据当前激活的标签页索引，设置标签页的选中状态
-#     st.tabs.set_active_tab(current_tab)
-
+from pathlib import Path
 import streamlit as st
+from st_pages import Page, show_pages, add_page_title
+
+
+current_path = Path().absolute()
+cache_path = current_path / '.cache'
+cache_data_path = cache_path / 'upload_data'
+
+if not cache_path.exists():
+    cache_path.mkdir()
+
+if not cache_data_path.exists():
+    cache_data_path.mkdir()
 
 st.set_page_config(layout='wide')
 
+add_page_title()
+show_pages([Page('main.py', '对账系统演示 Demo'),
+            Page('pages/upload.py', '第一歩：上传数据'),
+            Page('pages/docs.py', '第二歩：需求文档'),
+            Page('pages/plan.py', '第三歩：执行计划'),
+            Page('pages/code.py', '第四歩：代码生成')])
 
-st.title('对账系统演示 Demo')
 st.text('这是一个对账系统的演示 Demo，用于展示如何使用 OpenAI 的 API 来生成对账系统的执行计划。')
-if st.button("开始"):
-    st.switch_page("pages/upload.py")
+st.text('这是一个对账系统的演示 Demo，用于展示如何使用 OpenAI 的 API 来生成对账系统的执行计划。')
+st.text('这是一个对账系统的演示 Demo，用于展示如何使用 OpenAI 的 API 来生成对账系统的执行计划。')
+
+st.markdown('---')
+st.caption('配置 OpenAI Key')
+
+_api_key = st.session_state.get('api_key', '')
+api_key = st.text_input('API KEY', type='password', value=_api_key)
+
+_base_url = st.session_state.get('base_url', '')
+base_url = st.text_input('BASE URL', value=_base_url)
+
+st.session_state['api_key'] = api_key
+st.session_state['base_url'] = base_url
+
+st.markdown('---')
+if st.button("开始", use_container_width=True, disabled=not api_key or not base_url):
+    st.session_state['from_page'] = 'home'
+    st.switch_page('pages/upload.py')
+
