@@ -1,77 +1,103 @@
+import copy
 import io
 from pathlib import Path
-from typing import Dict
 
 import pandas as pd
 import streamlit as st
 
 PAGE_NAME = 'upload'
+UPLOAD_DIR = Path().absolute() / '.cache' / 'upload_data'
+UPLOAD_DATA_DIR = UPLOAD_DIR / 'data'
+UPLOAD_TEMPLATE_DIR = UPLOAD_DIR / 'template'
+
 st.set_page_config(layout='wide')
 
 
-def preview_data(_file, rows=20) -> pd.DataFrame | Dict[str, pd.DataFrame] | None | Exception:
+def save_files(data_files=None, template_file=None):
+    if data_files is not None:
+        for file in data_files:
+            with open(UPLOAD_DATA_DIR / file.name, 'wb') as f:
+                f.write(file.read())
+
+    if template_file is not None:
+        with open(UPLOAD_TEMPLATE_DIR / template_file.name, 'wb') as f:
+            f.write(template_file.read())
+
+
+@st.cache_data(show_spinner=False)
+def check_file(file):
     try:
-        if _file.suffix == '.xlsx':
-            df_read_data = {}
-            for sheet in pd.ExcelFile(io.BytesIO(_file.read_bytes())).sheet_names:
-                df_read_data[sheet] = pd.read_excel(io.BytesIO(_file.read_bytes()), nrows=rows, sheet_name=sheet)
-        elif _file.suffix == '.csv':
-            df_read_data = pd.read_csv(io.BytesIO(_file.read_bytes()), nrows=rows)
+        if file.name.endswith('.xlsx'):
+            pd.read_excel(io.BytesIO(copy.deepcopy(file).read()))
+            return
+        elif file.name.endswith('.csv'):
+            pd.read_csv(io.BytesIO(copy.deepcopy(file).read()))
+            return
         else:
-            st.error('仅支持 csv 和 xlsx 格式')
-            df_read_data = None
-        return df_read_data
+            raise Exception('仅支持 csv 和 xlsx 格式')
     except Exception as e:
         return e
 
 
-data_dir = Path().absolute() / '.cache' / 'upload_data'
-print(st.session_state['from_page'])
-print(st.session_state['from_page'] == PAGE_NAME)
-if st.session_state['from_page'] != PAGE_NAME:
-    for file in data_dir.glob('*'):
-        file.unlink()
+def upload_data_files_component():
+    upload_data_files = st.file_uploader("上传数据文件",
+                                         type=["csv", "xlsx"],
+                                         accept_multiple_files=True,
+                                         label_visibility='collapsed')
+    exist_files_name = []
+    check_files_ls = []
+    for file in upload_data_files:
+        if file.name not in exist_files_name:
+            exist_files_name.append(file.name)
+            check_files_ls.append(file)
 
-if st.button("返回"):
-    st.session_state['from_page'] = PAGE_NAME
-    st.switch_page("main.py")
+    validate_files_ls = []
+    for file in check_files_ls:
+        with st.spinner(f'《{file.name}》解析中...'):
+            if err := check_file(file) is None:
+                validate_files_ls.append(file)
+                st.success(f'《{file.name}》解析成功')
+            elif isinstance(err, Exception):
+                st.error(f'《{file.name}》解析失败：{str(err)}')
+    return validate_files_ls
 
-st.title('第一歩：上传文件')
-st.caption('请上传需要对账的数据文件，仅支持 csv 和 xlsx 格式。有重复文件自动去重')
-files = st.file_uploader("上传文件", type=["csv", "xlsx"], accept_multiple_files=True, label_visibility='collapsed')
-st.markdown('---')
 
-for file in files:
-    with open(data_dir / file.name, 'wb') as f:
-        f.write(file.read())
+def upload_template_file_component():
+    result_template = st.file_uploader("上传结果模板",
+                                       type=["csv", "xlsx"],
+                                       label_visibility='collapsed')
 
-if list(data_dir.iterdir()):
-    cols = st.columns(5)
-    with cols[0]:
-        st.markdown('## 数据预览')
-    with cols[-1]:
-        num_rows = st.number_input('显示行数', min_value=1, max_value=1000, value=10, step=1)
+    validate_template_file = None
+    if result_template:
+        if err := check_file(result_template) is None:
+            validate_template_file = result_template
+            st.success('结果模板解析成功')
+        else:
+            st.error(f'结果模板解析失败：{str(err)}')
+    return validate_template_file
 
-    for idx, file in enumerate(sorted(data_dir.iterdir(), key=lambda x: x.stat().st_ino, reverse=False)):
-        st.markdown(f'### {idx + 1}. {file.name}')
-        with st.spinner('加载中...'):
-            preview = preview_data(file, rows=num_rows)
-            if preview is None:
-                pass
-            elif isinstance(preview, pd.DataFrame):
-                st.dataframe(preview, hide_index=True, use_container_width=True)
-            elif isinstance(preview, Dict):
-                all_sheet_names = list(preview.keys())
-                tabs = st.tabs(all_sheet_names)
-                for tab_idx, sheet_name in enumerate(all_sheet_names):
-                    with tabs[tab_idx]:
-                        st.dataframe(preview[sheet_name], hide_index=True, use_container_width=True)
-            elif isinstance(preview, Exception):
-                st.error(f'读取失败：{str(preview)}')
 
-    st.markdown('---')
-    st.session_state['from_page'] = PAGE_NAME
+def run():
+    if st.button("返回"):
+        st.session_state['from_page'] = PAGE_NAME
+        st.switch_page("main.py")
+    else:
+        st.title('第1歩：上传文件')
 
-if st.button("下一步", use_container_width=True, disabled=len(list(data_dir.iterdir())) == 0):
-    st.session_state['from_page'] = PAGE_NAME
-    st.switch_page("pages/docs.py")
+        st.markdown('### 1. 数据文件')
+        st.caption('请上传需要对账的数据文件，仅支持 csv 和 xlsx 格式。有重复文件自动去重')
+        validate_files_ls = upload_data_files_component()
+        st.markdown('---')
+
+        st.markdown('### 2. 结果模板')
+        validate_template_file = upload_template_file_component()
+        st.markdown('---')
+
+        button_label = "确认上传" if len(validate_files_ls) > 0 or validate_template_file else "跳过"
+        if st.button(button_label, use_container_width=True):
+            save_files(validate_files_ls, validate_template_file)
+            st.session_state['from_page'] = PAGE_NAME
+            st.switch_page("pages/preview.py")
+
+
+run()
