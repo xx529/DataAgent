@@ -1,14 +1,18 @@
 import copy
 import io
-from pathlib import Path
 
 import pandas as pd
 import streamlit as st
 
+if st.session_state.get('run') is True:
+    from utils.config import CACHE_UPLOAD_DATA_PATH, CACHE_UPLOAD_TEMPLATE_PATH
+else:
+    from ..utils.config import CACHE_UPLOAD_DATA_PATH, CACHE_UPLOAD_TEMPLATE_PATH
+
 PAGE_NAME = 'upload'
-UPLOAD_DIR = Path().absolute() / '.cache' / 'upload_data'
-UPLOAD_DATA_DIR = UPLOAD_DIR / 'data'
-UPLOAD_TEMPLATE_DIR = UPLOAD_DIR / 'template'
+
+UPLOAD_DATA_DIR = CACHE_UPLOAD_DATA_PATH
+CACHE_UPLOAD_TEMPLATE_PATH = CACHE_UPLOAD_TEMPLATE_PATH
 
 st.set_page_config(layout='wide')
 
@@ -20,7 +24,7 @@ def save_files(data_files=None, template_file=None):
                 f.write(file.read())
 
     if template_file is not None:
-        with open(UPLOAD_TEMPLATE_DIR / template_file.name, 'wb') as f:
+        with open(CACHE_UPLOAD_TEMPLATE_PATH / template_file.name, 'wb') as f:
             f.write(template_file.read())
 
 

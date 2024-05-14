@@ -1,0 +1,1 @@
+cd ./gui && streamlit run main.py

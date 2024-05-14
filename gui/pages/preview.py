@@ -1,16 +1,42 @@
 import io
-from pathlib import Path
-from typing import Dict
+from typing import Dict, List
 
+import numpy as np
 import pandas as pd
 import streamlit as st
+from pydantic import BaseModel
+
+if st.session_state.get('run') is True:
+    from utils.config import (
+    CACHE_REFORMAT_DATA_PATH,
+    CACHE_REFORMAT_TEMPLATE_PATH,
+    CACHE_UPLOAD_DATA_PATH,
+    CACHE_UPLOAD_TEMPLATE_PATH,
+)
+else:
+    from ..utils.config import (
+        CACHE_REFORMAT_DATA_PATH,
+        CACHE_REFORMAT_TEMPLATE_PATH,
+        CACHE_UPLOAD_DATA_PATH,
+        CACHE_UPLOAD_TEMPLATE_PATH
+)
 
 PAGE_NAME = 'data'
-UPLOAD_DIR = Path().absolute() / '.cache' / 'upload_data'
-UPLOAD_DATA_DIR = UPLOAD_DIR / 'data'
-UPLOAD_TEMPLATE_DIR = UPLOAD_DIR / 'template'
+
+UPLOAD_DATA_DIR = CACHE_UPLOAD_DATA_PATH
+UPLOAD_TEMPLATE_DIR = CACHE_UPLOAD_TEMPLATE_PATH
+
+REFORMAT_DATA_DIR = CACHE_REFORMAT_DATA_PATH
+REFORMAT_TEMPLATE_DIR = CACHE_REFORMAT_TEMPLATE_PATH
 
 st.set_page_config(layout='wide')
+
+
+class DataAlignmentConfig(BaseModel):
+    file_name: str
+    sheet_name: str | None = None
+    header: int
+    select_cols: list[int]
 
 
 def read_data(_file, nrows=20) -> Dict[str | None, pd.DataFrame | Exception]:
@@ -33,9 +59,15 @@ def read_data(_file, nrows=20) -> Dict[str | None, pd.DataFrame | Exception]:
         return {None: e}
 
 
-def show_single_table(file_name, df, title_count):
+def show_single_table(file, df, count, sheet_name, label_prefix) -> DataAlignmentConfig | None:
+    st.markdown(f'##### {count}. {file.name}（sheet：{sheet_name}）' if sheet_name else f'##### {file.name}')
+
+    is_select_table = st.toggle(f'{count}{label_prefix}是否选择', value=False, label_visibility='collapsed')
+    if not is_select_table:
+        return None
+
     if df is None:
-        st.error(f'读取失败：{str(file_name)}')
+        st.error(f'读取失败：{str(file.name)}')
         return
 
     df = df.astype(str)
@@ -43,41 +75,54 @@ def show_single_table(file_name, df, title_count):
 
     cols = st.columns(3)
     with cols[0]:
-        st.markdown('- 选择表头行')
-        st.number_input(f'{title_count}表头行', min_value=1, max_value=len(df), value=1, step=1,
-                        label_visibility='collapsed')
+        st.markdown('- 选择表头行（红色字体）')
+        header = st.number_input(f'{count}{label_prefix}表头行', min_value=1, max_value=len(df), value=1, step=1,
+                                 label_visibility='collapsed')
+
     with cols[1]:
-        st.markdown('- 筛选列字段')
-        select_cols = st.multiselect(f'{title_count}选取列', df.columns, label_visibility='collapsed')
+        st.markdown('- 筛选列字段（带背景色）')
+        select_cols = st.multiselect(f'{count}{label_prefix}选取列', df.columns, label_visibility='collapsed')
 
     with cols[2]:
         st.markdown('- 仅显示选择字段')
-        is_only_select_cols = st.toggle(f'{title_count}仅显示选择列', value=False, label_visibility='collapsed')
+        is_only_select_cols = st.toggle(f'{count}{label_prefix}仅显示选择列', value=False, label_visibility='collapsed')
 
     if is_only_select_cols:
         df = df[select_cols]
 
+    df_style = df.style.map(lambda x: 'color: red;', subset=pd.IndexSlice[:header - 1, :])
+
     if select_cols:
-        df = df.style.set_properties(**{'background-color': '#ffffb3'}, subset=select_cols)
+        df_style = df_style.set_properties(**{'background-color': '#ffffb3'}, subset=select_cols)
+
+    st.dataframe(df_style, hide_index=True, use_container_width=True)
+
+    if not select_cols:
+        st.error('请至少选择一列')
+
+    return DataAlignmentConfig(file_name=file.name, header=header, select_cols=select_cols, sheet_name=sheet_name)
 
 
-    st.dataframe(df, hide_index=True, use_container_width=True)
-
-    return
-
-
-def data_preview_component(nrows=10):
+def data_preview_component(nrows=10) -> List[DataAlignmentConfig]:
     count = 0
+    cfg_ls = []
+
+    if len(list(UPLOAD_DATA_DIR.iterdir())) == 0:
+        st.error('请上传数据文件')
+
     for idx, file in enumerate(sorted(UPLOAD_DATA_DIR.iterdir(), key=lambda x: x.stat().st_ino, reverse=False)):
         with st.spinner('加载中...'):
             preview = read_data(file, nrows=nrows)
             for sheet_name, df in preview.items():
                 count += 1
-                st.markdown(f'##### {count}. {file.name}（sheet：{sheet_name}）' if sheet_name else f'##### {file.name}')
-                show_single_table(file_name=file.name, df=df, title_count=str(count) + 'data')
+                cfg = show_single_table(file=file, df=df, count=count, sheet_name=sheet_name, label_prefix='data')
 
-                for i in range(5):
+                if cfg is not None:
+                    cfg_ls.append(cfg)
+
+                for i in range(3):
                     st.caption('')
+    return cfg_ls
 
 
 def clear_data_component():
@@ -85,23 +130,77 @@ def clear_data_component():
         for file in UPLOAD_DATA_DIR.glob('*'):
             file.unlink()
 
+        for file in UPLOAD_TEMPLATE_DIR.glob('*'):
+            file.unlink()
 
-def template_preview_component(nrows=10):
+
+def template_preview_component(nrows=10) -> List[DataAlignmentConfig]:
     if len(list(UPLOAD_TEMPLATE_DIR.iterdir())) == 0:
         st.error('请上传结果模板')
-        return
+        return []
 
     file = list(UPLOAD_TEMPLATE_DIR.iterdir())[0]
     count = 0
+    cfg_ls = []
     with st.spinner('加载中...'):
         preview = read_data(file, nrows=nrows)
         for sheet_name, df in preview.items():
             count += 1
-            st.markdown(f'##### {count}. {file.name}（sheet：{sheet_name}）' if sheet_name else f'##### {file.name}')
-            show_single_table(file_name=file.name, df=df, title_count=str(count) + 'template')
+            cfg = show_single_table(file=file, df=df, count=count, sheet_name=sheet_name, label_prefix='template')
 
-            for i in range(5):
+            if cfg is not None:
+                cfg_ls.append(cfg)
+
+            for i in range(3):
                 st.caption('')
+    return cfg_ls
+
+
+def validate_cfg(data_cfg_ls: List[DataAlignmentConfig], template_cfg_ls: List[DataAlignmentConfig]) -> bool:
+    if len(data_cfg_ls) == 0 or len(template_cfg_ls) == 0:
+        return False
+
+    for c in data_cfg_ls + template_cfg_ls:
+        if not c.select_cols:
+            return False
+    return True
+
+
+def create_file_for_docs(data_cfg_ls: List[DataAlignmentConfig], template_cfg_ls: List[DataAlignmentConfig]):
+    for file in REFORMAT_DATA_DIR.glob('*'):
+        file.unlink()
+
+    for file in REFORMAT_TEMPLATE_DIR.glob('*'):
+        file.unlink()
+
+    count = 0
+    for data in data_cfg_ls:
+        if data.file_name.endswith('.xlsx'):
+            df = pd.read_excel(UPLOAD_DATA_DIR / data.file_name, sheet_name=data.sheet_name, header=data.header - 1)
+            col_idx = np.array(data.select_cols) - 1
+            df = df[df.columns[col_idx]]
+            df.to_excel(REFORMAT_DATA_DIR / f'数据{count}.xlsx', index=False, sheet_name=data.sheet_name)
+
+        elif data.file_name.endswith('.csv'):
+            df = pd.read_csv(UPLOAD_DATA_DIR / data.file_name, header=data.header - 1)
+            col_idx = np.array(data.select_cols) - 1
+            df = df[df.columns[col_idx]]
+            df.to_csv(REFORMAT_DATA_DIR / f'数据{count}.csv', index=False)
+        count += 1
+
+    for data in template_cfg_ls:
+        if data.file_name.endswith('.xlsx'):
+            df = pd.read_excel(UPLOAD_TEMPLATE_DIR / data.file_name, sheet_name=data.sheet_name, header=data.header - 1)
+            col_idx = np.array(data.select_cols) - 1
+            df = df[df.columns[col_idx]]
+            df.to_excel(REFORMAT_TEMPLATE_DIR / f'数据{count}.xlsx', index=False, sheet_name=data.sheet_name)
+
+        elif data.file_name.endswith('.csv'):
+            df = pd.read_csv(UPLOAD_TEMPLATE_DIR / data.file_name, header=data.header - 1)
+            col_idx = np.array(data.select_cols) - 1
+            df = df[df.columns[col_idx]]
+            df.to_csv(REFORMAT_TEMPLATE_DIR / f'数据{count}.csv', index=False)
+        count += 1
 
 
 def run():
@@ -113,16 +212,19 @@ def run():
         clear_data_component()
 
         st.markdown('### 1. 所有数据')
-        data_preview_component()
+        data_cfg_ls = data_preview_component()
         st.markdown('---')
 
         st.markdown('## 2. 结果模板')
-        template_preview_component()
+        template_cfg_ls = template_preview_component()
         st.markdown('---')
 
-        if st.button("下一步", use_container_width=True):
+        is_pass = validate_cfg(data_cfg_ls, template_cfg_ls)
+
+        if st.button("下一步", use_container_width=True, disabled=not is_pass):
             st.session_state['from_page'] = PAGE_NAME
-            st.switch_page("pages/reformat.py")
+            create_file_for_docs(data_cfg_ls, template_cfg_ls)
+            st.switch_page("pages/docs.py")
 
 
 run()
