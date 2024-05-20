@@ -4,7 +4,7 @@ import uuid
 from functools import partial
 from pathlib import Path
 from subprocess import CompletedProcess
-from typing import List, Tuple
+from typing import List, Tuple, Literal
 
 from IPython.terminal.interactiveshell import TerminalInteractiveShell
 from IPython.utils.capture import capture_output
@@ -15,9 +15,10 @@ class InteractivePythonRunner:
     ANSI_ESCAPE = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
     ERROR_DELIMITERS = '-' * 75
 
-    def __init__(self, ipython_dir: Path):
+    def __init__(self, ipython_dir: Path, raise_error: bool = True):
         self.ipython_dir = str(ipython_dir)
-        self.shell = None
+        self.shell: TerminalInteractiveShell = None
+        self.raise_error = raise_error
 
     def run(self, code: str | List[str]) -> Tuple[str, str | None]:
 
@@ -42,7 +43,8 @@ class InteractivePythonRunner:
     def __exit__(self, exc_type, exc_val, exc_tb):
         logger.info('close ipython instance')
         self.shell.run_cell('exit()')
-        return self
+        if exc_type is not None and self.raise_error == 'raise':
+            raise exc_val
 
 
 class PythonRunner:
